@@ -1,4 +1,5 @@
-string version = "v2.03.4";
+
+string version = "v2.04.1";
 
 class MyCandles{
    public:
@@ -60,11 +61,7 @@ input bool order_limit = false;
 input bool are_you_rich = true;
 input bool is_min_stoploss = false;
 
-input int upper_stoch = 170;
-input int lower_stoch = 30;
-input int upper_smooth = 170;
-input int lower_smooth = 30;
-
+input bool is_multi_lots = true;
 
 double c_tp = 0;
 double c_entry = 0;
@@ -305,7 +302,26 @@ double getLots(double entry, double sl) {
       lots = lots < dblLotsMinimum ? dblLotsMinimum : lots;
    }
    lots = is_min_stoploss == true ? dblLotsMinimum : lots;
+   lots = is_multi_lots ? getLotsMulti(lots) : lots;
    return NormalizeDouble(lots, Digits);
+}
+double getLotsMulti(double lots){
+   if(OrdersHistoryTotal() < 5)
+      return lots;
+   
+   int countLoss = 0;
+   double sumLots = 0;
+   int maxCount = OrdersHistoryTotal();
+   for(int a=maxCount-1;a>=maxCount-5;a--){
+      if(OrderSelect(a,SELECT_BY_POS,MODE_HISTORY)==true){
+         if(OrderProfit() < 0){
+            countLoss++;
+            sumLots += OrderLots();
+         }
+      }
+   }
+   
+   return countLoss == 5 ? sumLots : lots;
 }
 //-----------------------------------------------------------------------------------------------------------
 void callExit()
@@ -536,12 +552,15 @@ int calType(int idx)
    bool rsiBBUnder = smaRsi > data[idx].v_lowerBand;
    bool rsiBBUnderRsi = rsi9 > smaRsi + minNumber;
    
-   if (sumStoch >= upper_stoch && (sumSmooth <= lower_smooth || sumSmooth >= upper_smooth)){
-   	action = Short;
-   }
-   if (sumStoch <= lower_stoch && (sumSmooth <= lower_smooth || sumSmooth >= upper_smooth)){
+   if (sumStoch <= 30 && sumSmooth <= 30)
    	action = Long;
-   }	
+   if (sumStoch <= 80 && sumSmooth >= 120)
+   	action = Long;
+   
+   if (sumStoch >= 170 && sumSmooth >= 170)
+   	action = Short;
+   if (sumStoch >= 120 && sumSmooth <= 80)
+   	action = Short;
    	
    if (action == Short && wma9045 == false){
       action = None;
